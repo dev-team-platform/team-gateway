@@ -9,27 +9,37 @@ namespace TeamGateway.Api.Services;
 
 public interface IInternalJwtIssuer
 {
-    string Create(ClaimsPrincipal principal);
+    string Create(ClaimsPrincipal principal, string clusterId);
 }
 
 public sealed class InternalJwtIssuer : IInternalJwtIssuer
 {
     private static readonly HashSet<string> ReservedClaimTypes =
-    [JwtRegisteredClaimNames.Aud, JwtRegisteredClaimNames.Exp, JwtRegisteredClaimNames.Iat, JwtRegisteredClaimNames.Iss];
+    [
+        JwtRegisteredClaimNames.Aud,
+        JwtRegisteredClaimNames.Exp,
+        JwtRegisteredClaimNames.Iat,
+        JwtRegisteredClaimNames.Iss
+    ];
 
-    private readonly InternalJwtOptions _options;
+    private readonly IOptions<AuthOptions> _authOptions;
     private readonly SigningCredentials _credentials;
 
-    public InternalJwtIssuer(IOptions<InternalJwtOptions> options)
+    public InternalJwtIssuer(IOptions<AuthOptions> authOptions)
     {
-        _options = options.Value;
+        _authOptions = authOptions;
         var rsa = RSA.Create();
-        rsa.ImportFromPem(_options.PrivateKeyPemPath);
+        rsa.ImportFromPem(_authOptions.Value.InternalJwt.PrivateKeyPemPath);
         _credentials = new SigningCredentials(new RsaSecurityKey(rsa), SecurityAlgorithms.RsaSha256);
     }
 
-    public string Create(ClaimsPrincipal principal)
+    public string Create(ClaimsPrincipal principal, string clusterId)
     {
+        if (!_authOptions.Value.InternalJwt.AudienceMappings.TryGetValue(clusterId, out var audience))
+        {
+            throw new UnauthorizedAccessException($"No audience mapping found for cluster ID '{clusterId}'.");
+        }
+
         var subject = principal.FindFirstValue(JwtRegisteredClaimNames.Sub)
             ?? throw new UnauthorizedAccessException("The authenticated principal has no sub claim.");
 
@@ -39,13 +49,13 @@ public sealed class InternalJwtIssuer : IInternalJwtIssuer
             .Append(new Claim(JwtRegisteredClaimNames.Sub, subject))
             .ToList();
 
-        var now = DateTime.UtcNow;
+        var now = DateTimeOffset.UtcNow;
         var token = new JwtSecurityToken(
-            issuer: _options.Issuer,
-            audience: _options.Audience,
+            issuer: _authOptions.Value.InternalJwt.Issuer,
+            audience: audience,
             claims: claims,
-            notBefore: now,
-            expires: now.Add(_options.Lifetime),
+            notBefore: now.UtcDateTime,
+            expires: now.Add(_authOptions.Value.InternalJwt.Lifetime).UtcDateTime,
             signingCredentials: _credentials);
 
         return new JwtSecurityTokenHandler().WriteToken(token);

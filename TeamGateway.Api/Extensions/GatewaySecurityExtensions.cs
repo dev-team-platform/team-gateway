@@ -18,9 +18,8 @@ public static class GatewaySecurityExtensions
     {
         services.AddGatewaySecurityOptions(configuration);
 
-        var cookie = configuration.GetRequiredSection(AuthCookieOptions.SectionName).Get<AuthCookieOptions>()!;
-        var keycloak = configuration.GetRequiredSection(KeycloakOptions.SectionName).Get<KeycloakOptions>()!;
-        var antiforgery = configuration.GetRequiredSection(GatewayAntiforgeryOptions.SectionName).Get<GatewayAntiforgeryOptions>()!;
+        var auth = configuration.GetRequiredSection(AuthOptions.SectionName).Get<AuthOptions>()!;
+        var antiforgery = configuration.GetRequiredSection(AntiforgeryOptions.SectionName).Get<AntiforgeryOptions>()!;
 
         services.AddSingleton<IConnectionMultiplexer>(_ =>
         {
@@ -53,13 +52,13 @@ public static class GatewaySecurityExtensions
             })
             .AddCookie(AuthenticationSchemes.ApplicationCookie, options =>
             {
-                options.Cookie.Name = cookie.CookieName;
-                options.Cookie.HttpOnly = cookie.HttpOnly;
-                options.Cookie.Path = cookie.Path;
-                options.Cookie.SameSite = Enum.Parse<SameSiteMode>(cookie.SameSite, true);
-                options.Cookie.SecurePolicy = Enum.Parse<CookieSecurePolicy>(cookie.SecurePolicy, true);
-                options.ExpireTimeSpan = cookie.ExpireTimeSpan;
-                options.SlidingExpiration = cookie.SlidingExpiration;
+                options.Cookie.Name = auth.Cookie.CookieName;
+                options.Cookie.HttpOnly = auth.Cookie.HttpOnly;
+                options.Cookie.Path = auth.Cookie.Path;
+                options.Cookie.SameSite = Enum.Parse<SameSiteMode>(auth.Cookie.SameSite, true);
+                options.Cookie.SecurePolicy = Enum.Parse<CookieSecurePolicy>(auth.Cookie.SecurePolicy, true);
+                options.ExpireTimeSpan = auth.Cookie.ExpireTimeSpan;
+                options.SlidingExpiration = auth.Cookie.SlidingExpiration;
                 options.LoginPath = "/api/v1/auth/login";
                 options.AccessDeniedPath = "/api/v1/auth/access-denied";
                 options.Events.OnValidatePrincipal = async context =>
@@ -82,11 +81,11 @@ public static class GatewaySecurityExtensions
             })
             .AddOpenIdConnect(AuthenticationSchemes.Keycloak, options =>
             {
-                options.Authority = keycloak.Authority;
-                options.ClientId = keycloak.ClientId;
-                options.ClientSecret = keycloak.ClientSecret;
-                options.CallbackPath = keycloak.CallbackPath;
-                options.SignedOutCallbackPath = keycloak.SignedOutCallbackPath;
+                options.Authority = auth.Keycloak.Authority;
+                options.ClientId = auth.Keycloak.ClientId;
+                options.ClientSecret = auth.Keycloak.ClientSecret;
+                options.CallbackPath = auth.Keycloak.CallbackPath;
+                options.SignedOutCallbackPath = auth.Keycloak.SignedOutCallbackPath;
                 options.SignInScheme = AuthenticationSchemes.ApplicationCookie;
                 options.ResponseType = OpenIdConnectResponseType.Code;
                 options.UsePkce = true;
@@ -117,28 +116,28 @@ public static class GatewaySecurityExtensions
         services.AddOptions<RedisOptions>().BindConfiguration(RedisOptions.SectionName)
             .Validate(x => !string.IsNullOrWhiteSpace(x.ConnectionString), "Redis:ConnectionString is required.")
             .ValidateOnStart();
-        services.AddOptions<AuthCookieOptions>().BindConfiguration(AuthCookieOptions.SectionName)
-            .Validate(x => !string.IsNullOrWhiteSpace(x.CookieName), "Authentication:Cookie:CookieName is required.")
-            .Validate(x => x.ExpireTimeSpan > TimeSpan.Zero, "Authentication:Cookie:ExpireTimeSpan must be positive.")
+
+        services.AddOptions<AuthOptions>().BindConfiguration(AuthOptions.SectionName)
+            .Validate(x => x.AllowRedirectOrigins != null && x.AllowRedirectOrigins.Count > 0, "Auth:AllowRedirectOrigins must contain at least one origin.")
+            .Validate(x => !string.IsNullOrWhiteSpace(x.Cookie.CookieName), "Auth:Cookie:CookieName is required.")
+            .Validate(x => x.Cookie.ExpireTimeSpan > TimeSpan.Zero, "Auth:Cookie:ExpireTimeSpan must be positive.")
+
+            .Validate(x => !string.IsNullOrWhiteSpace(x.Keycloak.Authority), "Auth:Keycloak:Authority is required.")
+            .Validate(x => !string.IsNullOrWhiteSpace(x.Keycloak.ClientId), "Auth:Keycloak:ClientId is required.")
+            .Validate(x => !string.IsNullOrWhiteSpace(x.Keycloak.ClientSecret), "Auth:Keycloak:ClientSecret is required.")
+            .Validate(x => !string.IsNullOrWhiteSpace(x.Keycloak.CallbackPath), "Auth:Keycloak:CallbackPath is required.")
+            .Validate(x => !string.IsNullOrWhiteSpace(x.Keycloak.SignedOutCallbackPath), "Auth:Keycloak:SignedOutCallbackPath is required.")
+            .Validate(x => !string.IsNullOrWhiteSpace(x.Keycloak.ChangePasswordAction), "Auth:Keycloak:ChangePasswordAction is required.")
+            .Validate(x => x.Keycloak.RefreshBeforeExpiry > TimeSpan.Zero, "Auth:Keycloak:RefreshBeforeExpiry must be positive.")
+            .Validate(x => x.InternalJwt.AudienceMappings != null && x.InternalJwt.AudienceMappings.Count > 0, "Auth:InternalJwt:AudienceMappings is required.")
+            .Validate(x => !string.IsNullOrWhiteSpace(x.InternalJwt.PrivateKeyPemPath), "Auth:InternalJwt:PrivateKeyPem is required.")
+            .Validate(x => x.InternalJwt.Lifetime > TimeSpan.Zero, "Auth:InternalJwt:Lifetime must be positive.")
             .ValidateOnStart();
-        services.AddOptions<KeycloakOptions>().BindConfiguration(KeycloakOptions.SectionName)
-            .Validate(x => !string.IsNullOrWhiteSpace(x.Authority), "Authentication:Keycloak:Authority is required.")
-            .Validate(x => !string.IsNullOrWhiteSpace(x.ClientId), "Authentication:Keycloak:ClientId is required.")
-            .Validate(x => !string.IsNullOrWhiteSpace(x.ClientSecret), "Authentication:Keycloak:ClientSecret is required.")
-            .Validate(x => !string.IsNullOrWhiteSpace(x.CallbackPath), "Authentication:Keycloak:CallbackPath is required.")
-            .Validate(x => !string.IsNullOrWhiteSpace(x.SignedOutCallbackPath), "Authentication:Keycloak:SignedOutCallbackPath is required.")
-            .Validate(x => !string.IsNullOrWhiteSpace(x.ChangePasswordAction), "Authentication:Keycloak:ChangePasswordAction is required.")
-            .Validate(x => x.RefreshBeforeExpiry > TimeSpan.Zero, "Authentication:Keycloak:RefreshBeforeExpiry must be positive.")
-            .ValidateOnStart();
-        services.AddOptions<GatewayAntiforgeryOptions>().BindConfiguration(GatewayAntiforgeryOptions.SectionName)
+
+        services.AddOptions<AntiforgeryOptions>().BindConfiguration(AntiforgeryOptions.SectionName)
             .Validate(x => !string.IsNullOrWhiteSpace(x.HeaderName), "Antiforgery:HeaderName is required.")
             .Validate(x => !string.IsNullOrWhiteSpace(x.CookieName), "Antiforgery:CookieName is required.")
-            .ValidateOnStart();
-        services.AddOptions<InternalJwtOptions>().BindConfiguration(InternalJwtOptions.SectionName)
-            .Validate(x => !string.IsNullOrWhiteSpace(x.Issuer), "InternalJwt:Issuer is required.")
-            .Validate(x => !string.IsNullOrWhiteSpace(x.Audience), "InternalJwt:Audience is required.")
-            .Validate(x => !string.IsNullOrWhiteSpace(x.PrivateKeyPemPath), "InternalJwt:PrivateKeyPem is required.")
-            .Validate(x => x.Lifetime > TimeSpan.Zero, "InternalJwt:Lifetime must be positive.")
+            .Validate(x => !string.IsNullOrWhiteSpace(x.RequestTokenCookieName), "Antiforgery:RequestTokenCookieName is required.")
             .ValidateOnStart();
     }
 }

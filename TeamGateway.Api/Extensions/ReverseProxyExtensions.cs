@@ -14,10 +14,11 @@ public static class ReverseProxyExtensions
             .LoadFromConfig(configuration.GetSection("ReverseProxy"))
             .AddTransforms(builderContext =>
             {
+                var clusterId = builderContext.Route.ClusterId;
                 builderContext.AddRequestTransform(context =>
                 {
                     var tokenIssuer = context.HttpContext.RequestServices.GetRequiredService<IInternalJwtIssuer>();
-                    var token = tokenIssuer.Create(context.HttpContext.User);
+                    var token = tokenIssuer.Create(context.HttpContext.User, clusterId!);
                     context.ProxyRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
                     return ValueTask.CompletedTask;
                 });

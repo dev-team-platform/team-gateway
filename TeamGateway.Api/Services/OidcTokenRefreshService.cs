@@ -30,7 +30,7 @@ public sealed class OidcTokenRefreshService : IOidcTokenRefreshService
     private readonly RedisTicketStore _ticketStore;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IOptionsMonitor<OpenIdConnectOptions> _oidcOptions;
-    private readonly KeycloakOptions _keycloak;
+    private readonly IOptions<AuthOptions> _authOptions;
     private readonly ILogger<OidcTokenRefreshService> _logger;
 
     public OidcTokenRefreshService(
@@ -38,14 +38,14 @@ public sealed class OidcTokenRefreshService : IOidcTokenRefreshService
         RedisTicketStore ticketStore,
         IHttpClientFactory httpClientFactory,
         IOptionsMonitor<OpenIdConnectOptions> oidcOptions,
-        IOptions<KeycloakOptions> keycloak,
+        IOptions<AuthOptions> authOptions,
         ILogger<OidcTokenRefreshService> logger)
     {
         _refreshLock = refreshLock;
         _ticketStore = ticketStore;
         _httpClientFactory = httpClientFactory;
         _oidcOptions = oidcOptions;
-        _keycloak = keycloak.Value;
+        _authOptions = authOptions;
         _logger = logger;
     }
 
@@ -66,7 +66,7 @@ public sealed class OidcTokenRefreshService : IOidcTokenRefreshService
 
         await using var lease = await _refreshLock.TryAcquireAsync(
             sessionId,
-            _keycloak.RefreshLockTimeout,
+            _authOptions.Value.Keycloak.RefreshLockTimeout,
             cancellationToken);
 
         if (lease is null)
@@ -119,7 +119,7 @@ public sealed class OidcTokenRefreshService : IOidcTokenRefreshService
     {
         var expiresAt = properties.GetTokenValue("expires_at");
         return !DateTimeOffset.TryParse(expiresAt, out var expiresUtc)
-            || expiresUtc <= DateTimeOffset.UtcNow.Add(_keycloak.RefreshBeforeExpiry);
+            || expiresUtc <= DateTimeOffset.UtcNow.Add(_authOptions.Value.Keycloak.RefreshBeforeExpiry);
     }
 
     private async Task<TokenRefreshResponse?> RequestRefreshAsync(
@@ -135,8 +135,8 @@ public sealed class OidcTokenRefreshService : IOidcTokenRefreshService
             Content = new FormUrlEncodedContent(new Dictionary<string, string>
             {
                 ["grant_type"] = "refresh_token",
-                ["client_id"] = _keycloak.ClientId,
-                ["client_secret"] = _keycloak.ClientSecret,
+                ["client_id"] = _authOptions.Value.Keycloak.ClientId,
+                ["client_secret"] = _authOptions.Value.Keycloak.ClientSecret,
                 ["refresh_token"] = refreshToken
             })
         };
