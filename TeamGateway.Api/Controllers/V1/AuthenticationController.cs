@@ -16,16 +16,16 @@ namespace TeamGateway.Api.Controllers.V1;
 public class AuthenticationController : ControllerBase
 {
     private readonly IAntiforgery _antiforgery;
-    private readonly GatewayAntiforgeryOptions _antiforgeryOptions;
+    private readonly IOptions<Options.AntiforgeryOptions> _antiforgeryOptions;
     private readonly IConfiguration _configuration;
 
     public AuthenticationController(
         IAntiforgery antiforgery,
-        IOptions<GatewayAntiforgeryOptions> antiforgeryOptions,
+        IOptions<Options.AntiforgeryOptions> antiforgeryOptions,
         IConfiguration configuration)
     {
         _antiforgery = antiforgery;
-        _antiforgeryOptions = antiforgeryOptions.Value;
+        _antiforgeryOptions = antiforgeryOptions;
         _configuration = configuration;
     }
 
@@ -51,9 +51,8 @@ public class AuthenticationController : ControllerBase
         }
 
         var allowedOrigins = _configuration
-            .GetSection("Authentication:AllowedRedirectOrigins")
-            .Get<string[]>()
-            ?? [];
+            .GetRequiredSection(AuthOptions.SectionName)
+            .Get<AuthOptions>()!.AllowRedirectOrigins ?? [];
 
         var origin = $"{uri.Scheme}://{uri.Authority}";
 
@@ -74,14 +73,14 @@ public class AuthenticationController : ControllerBase
     {
         var tokens = _antiforgery.GetAndStoreTokens(HttpContext);
         Response.Cookies.Append(
-            _antiforgeryOptions.RequestTokenCookieName,
+            _antiforgeryOptions.Value.RequestTokenCookieName,
             tokens.RequestToken!,
             new CookieOptions
             {
                 HttpOnly = false,
-                Path = _antiforgeryOptions.Path,
-                SameSite = Enum.Parse<SameSiteMode>(_antiforgeryOptions.SameSite, true),
-                Secure = Enum.Parse<CookieSecurePolicy>(_antiforgeryOptions.SecurePolicy, true)
+                Path = _antiforgeryOptions.Value.Path,
+                SameSite = Enum.Parse<SameSiteMode>(_antiforgeryOptions.Value.SameSite, true),
+                Secure = Enum.Parse<CookieSecurePolicy>(_antiforgeryOptions.Value.SecurePolicy, true)
                     == CookieSecurePolicy.Always
             });
 

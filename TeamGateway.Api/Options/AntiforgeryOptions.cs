@@ -1,6 +1,6 @@
 namespace TeamGateway.Api.Options;
 
-public sealed class GatewayAntiforgeryOptions
+public sealed class AntiforgeryOptions
 {
     public const string SectionName = "Antiforgery";
 

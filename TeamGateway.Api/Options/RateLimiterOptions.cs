@@ -1,6 +1,6 @@
 namespace TeamGateway.Api.Options;
 
-public sealed class GatewayRateLimiterOptions
+public sealed class RateLimiterOptions
 {
     public const string SectionName = "RateLimiter";
 

@@ -11,8 +11,8 @@ public static class RateLimiterExtensions
     IConfiguration configuration)
     {
         services
-            .AddOptions<GatewayRateLimiterOptions>()
-            .BindConfiguration(GatewayRateLimiterOptions.SectionName)
+            .AddOptions<RateLimiterOptions>()
+            .BindConfiguration(RateLimiterOptions.SectionName)
             .Validate(x => x.Auth.PermitLimit > 0, "RateLimiter:Auth:PermitLimit must be positive.")
             .Validate(x => x.Auth.Window > TimeSpan.Zero, "RateLimiter:Auth:Window must be positive.")
             .Validate(x => x.Auth.SegmentsPerWindow > 0, "RateLimiter:Auth:SegmentsPerWindow must be positive.")
@@ -24,8 +24,8 @@ public static class RateLimiterExtensions
             .ValidateOnStart();
 
         var options = configuration
-            .GetRequiredSection(GatewayRateLimiterOptions.SectionName)
-            .Get<GatewayRateLimiterOptions>()!;
+            .GetRequiredSection(RateLimiterOptions.SectionName)
+            .Get<RateLimiterOptions>()!;
 
         services.AddRateLimiter(rateLimiterOptions =>
         {

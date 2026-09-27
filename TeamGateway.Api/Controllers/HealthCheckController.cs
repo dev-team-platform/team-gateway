@@ -13,16 +13,16 @@ namespace TeamGateway.Api.Controllers;
 public class HealthCheckController : ControllerBase
 {
     private readonly IDatabase _redis;
-    private readonly IOptions<InternalJwtOptions> _internalJwtOptions;
+    private readonly IOptions<AuthOptions> _authOptions;
     private readonly IWebHostEnvironment _environment;
 
     public HealthCheckController(
         IConnectionMultiplexer multiplexer,
-        IOptions<InternalJwtOptions> internalJwtOptions,
+        IOptions<AuthOptions> authOptions,
         IWebHostEnvironment environment)
     {
         _redis = multiplexer.GetDatabase();
-        _internalJwtOptions = internalJwtOptions;
+        _authOptions = authOptions;
         _environment = environment;
     }
 
@@ -87,7 +87,7 @@ public class HealthCheckController : ControllerBase
     {
         try
         {
-            var configuredPath = _internalJwtOptions.Value.PrivateKeyPemPath;
+            var configuredPath = _authOptions.Value.InternalJwt.PrivateKeyPemPath;
             var privatePemPath = Path.GetFullPath(configuredPath, _environment.ContentRootPath);
             var privatePem = await System.IO.File.ReadAllTextAsync(privatePemPath, cancellationToken);
 
