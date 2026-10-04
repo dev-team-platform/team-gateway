@@ -1,6 +1,6 @@
 using StackExchange.Redis;
 
-namespace TeamGateway.Api.Services;
+namespace TeamGateway.Api.Services.Auth;
 
 public interface IDistributedRefreshLock
 {

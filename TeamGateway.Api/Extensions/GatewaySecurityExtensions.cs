@@ -4,8 +4,10 @@ using Microsoft.IdentityModel.Tokens;
 using StackExchange.Redis;
 using TeamGateway.Api.Constants;
 using TeamGateway.Api.Options;
-using TeamGateway.Api.Services;
 using TeamGateway.Api.Stores;
+using TeamGateway.Api.Services.Auth;
+using TeamGateway.Api.Models.Messaging.Publishing;
+using TeamGateway.Api.Services.RabbitMq.Publishers;
 
 namespace TeamGateway.Api.Extensions;
 
@@ -17,6 +19,7 @@ public static class GatewaySecurityExtensions
         IWebHostEnvironment environment)
     {
         services.AddGatewaySecurityOptions(configuration);
+        services.AddRabbitMqEventPublisher();
 
         var auth = configuration.GetRequiredSection(AuthOptions.SectionName).Get<AuthOptions>()!;
         var antiforgery = configuration.GetRequiredSection(AntiforgeryOptions.SectionName).Get<AntiforgeryOptions>()!;
@@ -65,6 +68,7 @@ public static class GatewaySecurityExtensions
                 {
                     var refresher = context.HttpContext.RequestServices
                         .GetRequiredService<IOidcTokenRefreshService>();
+
                     var status = await refresher.RefreshIfNeededAsync(
                         context.Properties,
                         context.HttpContext.RequestAborted);
@@ -97,6 +101,35 @@ public static class GatewaySecurityExtensions
                 options.Scope.Add("openid");
                 options.Scope.Add("profile");
                 options.Scope.Add("email");
+                options.Events.OnTicketReceived = async context =>
+                {
+                    var identitySubject = context.Principal?.FindFirst("sub")?.Value;
+                    var logger = context.HttpContext.RequestServices.GetRequiredService<Serilog.ILogger>();
+
+                    if (string.IsNullOrWhiteSpace(identitySubject))
+                    {
+                        logger.Warning("OIDC login succeeded without a subject claim; UserLoggedIn event was not published");
+                        return;
+                    }
+
+                    var eventType = UserLoggedInEventData.RoutingKey;
+                    var publisher = context.HttpContext.RequestServices
+                        .GetRequiredService<IMessagingPublisherHandler<OutboxEvent<UserLoggedInEventData>>>();
+
+                    await publisher.HandleAsync(
+                        new OutboxEvent<UserLoggedInEventData>
+                        {
+                            RoutingKey = eventType,
+                            Type = eventType,
+                            Data = new UserLoggedInEventData
+                            {
+                                IdentitySubject = identitySubject,
+                                LastLoginAt = DateTimeOffset.UtcNow
+                            }
+                        },
+                        context.HttpContext.RequestAborted);
+
+                };
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
                     NameClaimType = "preferred_username",

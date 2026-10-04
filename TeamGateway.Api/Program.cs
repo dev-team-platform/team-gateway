@@ -1,5 +1,3 @@
-using System.Net;
-using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Versioning;
 using Serilog;
@@ -20,38 +18,8 @@ builder.Services.AddControllersWithViews(options =>
 });
 builder.Services.AddGatewayReverseProxy(builder.Configuration);
 builder.Services.AddGatewayRateLimiter(builder.Configuration);
-
-builder.Services.AddApiVersioning(options =>
-{
-    options.DefaultApiVersion = new ApiVersion(1, 0);
-    options.AssumeDefaultVersionWhenUnspecified = true;
-    options.ReportApiVersions = true;
-    options.ApiVersionReader = new UrlSegmentApiVersionReader();
-});
-
-builder.Services.AddVersionedApiExplorer(options =>
-{
-    options.GroupNameFormat = "'v'VVV";
-    options.SubstituteApiVersionInUrl = true;
-});
-
-var allowedOrigins = builder.Configuration
-    .GetSection("Cors:AllowedOrigins")
-    .Get<string[]>() ?? [];
-
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("DefaultCors", policy =>
-    {
-        if (allowedOrigins.Length > 0)
-        {
-            policy.WithOrigins(allowedOrigins)
-                .AllowAnyHeader()
-                .AllowAnyMethod()
-                .AllowCredentials();
-        }
-    });
-});
+builder.Services.AddApiVersioningConfiguration();
+builder.Services.AddCorsConfiguration(builder.Configuration);
 
 builder.Host.UseSerilog((context, services, configuration) =>
 {
@@ -60,14 +28,7 @@ builder.Host.UseSerilog((context, services, configuration) =>
         .ReadFrom.Services(services);
 });
 
-builder.Services.Configure<ForwardedHeadersOptions>(options =>
-{
-    options.ForwardedHeaders =
-        ForwardedHeaders.XForwardedFor |
-        ForwardedHeaders.XForwardedProto;
-
-    options.KnownProxies.Add(IPAddress.Parse("127.0.0.1"));
-});
+builder.Services.AddForwardedHeadersConfiguration(builder.Configuration);
 
 var app = builder.Build();
 
@@ -76,7 +37,11 @@ app.UseSerilogRequestLogging(options =>
 {
     options.MessageTemplate =
         "HTTP {RequestMethod} {RequestPath} responded {StatusCode} " +
-        "in {Elapsed:0.0000} ms IP={RemoteIpAddress} XFF={XForwardedFor}";
+        "in {Elapsed:0.0000} ms " +
+        "IP={RemoteIpAddress} " +
+        "XFF={XForwardedFor} " +
+        "ClientActionId={ClientActionId} " +
+        "ClientRequestId={ClientRequestId}";
 
     options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
     {
@@ -87,12 +52,21 @@ app.UseSerilogRequestLogging(options =>
         diagnosticContext.Set(
             "RemoteIpAddress",
             httpContext.Connection.RemoteIpAddress?.ToString());
+
+        diagnosticContext.Set(
+            "ClientActionId",
+            httpContext.Request.Headers["X-Client-Action-Id"].FirstOrDefault());
+
+        diagnosticContext.Set(
+            "ClientRequestId",
+            httpContext.Request.Headers["X-Client-Request-Id"].FirstOrDefault());
     };
 });
 app.UseRouting();
-app.UseCors("DefaultCors");
+app.UseCors(CorsPolicies.DefaultCors);
 app.UseRateLimiter();
 app.UseAuthentication();
+app.UseMiddleware<ClientCorrelationMiddleware>();
 app.UseMiddleware<AntiforgeryValidationMiddleware>();
 app.UseAuthorization();
 

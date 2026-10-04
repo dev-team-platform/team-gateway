@@ -6,7 +6,7 @@ using TeamGateway.Api.Constants;
 using TeamGateway.Api.Options;
 using TeamGateway.Api.Stores;
 
-namespace TeamGateway.Api.Services;
+namespace TeamGateway.Api.Services.Auth;
 
 public enum TokenRefreshStatus
 {
