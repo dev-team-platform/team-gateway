@@ -5,7 +5,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using TeamGateway.Api.Options;
 
-namespace TeamGateway.Api.Services;
+namespace TeamGateway.Api.Services.Auth;
 
 public interface IInternalJwtIssuer
 {
@@ -28,8 +28,11 @@ public sealed class InternalJwtIssuer : IInternalJwtIssuer
     public InternalJwtIssuer(IOptions<AuthOptions> authOptions)
     {
         _authOptions = authOptions;
+
+        var keyPem = File.ReadAllText(_authOptions.Value.InternalJwt.PrivateKeyPemPath);
         var rsa = RSA.Create();
-        rsa.ImportFromPem(_authOptions.Value.InternalJwt.PrivateKeyPemPath);
+        rsa.ImportFromPem(keyPem);
+
         _credentials = new SigningCredentials(new RsaSecurityKey(rsa), SecurityAlgorithms.RsaSha256);
     }
 

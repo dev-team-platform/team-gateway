@@ -1,5 +1,5 @@
 using System.Net.Http.Headers;
-using TeamGateway.Api.Services;
+using TeamGateway.Api.Services.Auth;
 using Yarp.ReverseProxy.Transforms;
 
 namespace TeamGateway.Api.Extensions;

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
+using TeamGateway.Api.Attributes;
 using TeamGateway.Api.Constants;
 using TeamGateway.Api.Options;
 
@@ -30,6 +31,7 @@ public class AuthenticationController : ControllerBase
     }
 
     [HttpGet("login")]
+    [SkipClientCorrelation]
     public IActionResult Login([FromQuery] string returnUrl)
     {
         var redirectUri = GetSafeReturnUrl(returnUrl);
@@ -62,6 +64,7 @@ public class AuthenticationController : ControllerBase
     }
 
     [HttpGet("access-denied")]
+    [SkipClientCorrelation]
     public IActionResult AccessDenied()
     {
         return Forbid();
@@ -69,6 +72,7 @@ public class AuthenticationController : ControllerBase
 
     [Authorize]
     [HttpGet("csrf")]
+    [EnableRateLimiting(RateLimiterPolicies.Default)]
     public IActionResult GetCsrfToken()
     {
         var tokens = _antiforgery.GetAndStoreTokens(HttpContext);

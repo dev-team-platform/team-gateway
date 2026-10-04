@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 using StackExchange.Redis;
+using TeamGateway.Api.Attributes;
 using TeamGateway.Api.Constants;
 using TeamGateway.Api.Options;
 
@@ -10,6 +11,7 @@ namespace TeamGateway.Api.Controllers;
 [Route("api/health-check")]
 [ApiController]
 [EnableRateLimiting(RateLimiterPolicies.Default)]
+[SkipClientCorrelation]
 public class HealthCheckController : ControllerBase
 {
     private readonly IDatabase _redis;
