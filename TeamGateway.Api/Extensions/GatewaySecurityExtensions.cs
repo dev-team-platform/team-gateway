@@ -66,6 +66,12 @@ public static class GatewaySecurityExtensions
                 options.AccessDeniedPath = "/api/v1/auth/access-denied";
                 options.Events.OnValidatePrincipal = async context =>
                 {
+                    if (environment.IsDevelopment()
+                        && context.Properties.Items.ContainsKey(AuthenticationSchemes.LocalBypassProperty))
+                    {
+                        return;
+                    }
+
                     var refresher = context.HttpContext.RequestServices
                         .GetRequiredService<IOidcTokenRefreshService>();
 
@@ -114,7 +120,7 @@ public static class GatewaySecurityExtensions
 
                     var eventType = UserLoggedInEventData.RoutingKey;
                     var publisher = context.HttpContext.RequestServices
-                        .GetRequiredService<IMessagingPublisherHandler<OutboxEvent<UserLoggedInEventData>>>();
+                        .GetRequiredService<IMessagingPublisher<OutboxEvent<UserLoggedInEventData>>>();
 
                     await publisher.HandleAsync(
                         new OutboxEvent<UserLoggedInEventData>

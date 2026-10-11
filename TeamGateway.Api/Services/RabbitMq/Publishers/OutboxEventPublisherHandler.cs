@@ -5,7 +5,7 @@ using TeamGateway.Api.Models.Messaging.Publishing;
 
 namespace TeamGateway.Api.Services.RabbitMq.Publishers;
 
-public sealed class OutboxEventPublisherHandler<TModel> : IMessagingPublisherHandler<OutboxEvent<TModel>>
+public sealed class OutboxEventPublisher<TModel> : IMessagingPublisher<OutboxEvent<TModel>>
 {
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
     private const string PublisherName = "GatewayEvents";
@@ -13,7 +13,7 @@ public sealed class OutboxEventPublisherHandler<TModel> : IMessagingPublisherHan
     private readonly RabbitMqPublisherHostedService _publisher;
     private readonly Serilog.ILogger _logger;
 
-    public OutboxEventPublisherHandler(
+    public OutboxEventPublisher(
         RabbitMqPublisherHostedService publisher,
         Serilog.ILogger logger)
     {
