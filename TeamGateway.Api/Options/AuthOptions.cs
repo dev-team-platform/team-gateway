@@ -3,6 +3,7 @@ namespace TeamGateway.Api.Options;
 public class AuthOptions
 {
     public const string SectionName = "Auth";
+    public string LocalBypassIdentity { get; init; } = string.Empty;
     public List<string> AllowRedirectOrigins { get; init; } = [];
     public AuthCookieOptions Cookie { get; init; } = null!;
     public KeycloakOptions Keycloak { get; init; } = null!;

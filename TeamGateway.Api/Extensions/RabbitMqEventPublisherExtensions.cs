@@ -42,8 +42,8 @@ public static class RabbitMqEventPublisherExtensions
         services.AddSingleton<RabbitMqPublisherHostedService>();
         services.AddHostedService(sp => sp.GetRequiredService<RabbitMqPublisherHostedService>());
         services.AddSingleton<
-            IMessagingPublisherHandler<OutboxEvent<UserLoggedInEventData>>,
-            OutboxEventPublisherHandler<UserLoggedInEventData>>();
+            IMessagingPublisher<OutboxEvent<UserLoggedInEventData>>,
+            OutboxEventPublisher<UserLoggedInEventData>>();
         return services;
     }
 }
