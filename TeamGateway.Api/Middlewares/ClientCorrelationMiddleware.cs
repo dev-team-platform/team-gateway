@@ -16,6 +16,15 @@ public sealed class ClientCorrelationMiddleware
     {
         var endpoint = context.GetEndpoint();
 
+        // Browser WebSocket APIs do not allow callers to set arbitrary request headers.
+        // SignalR can send these headers during HTTP negotiation, but not on the actual
+        // WebSocket upgrade request, so don't reject a handshake for missing correlation IDs.
+        if (IsWebSocketUpgradeRequest(context))
+        {
+            await _next(context);
+            return;
+        }
+
         // Endpoint explicitly skips validation
         if (endpoint?.Metadata.GetMetadata<SkipClientCorrelationAttribute>() is not null)
         {
@@ -76,5 +85,27 @@ public sealed class ClientCorrelationMiddleware
             message = "Invalid header",
             details = $"Header '{header}' must be a valid UUID."
         });
+    }
+
+    private static bool IsWebSocketUpgradeRequest(HttpContext context)
+    {
+        if (context.WebSockets.IsWebSocketRequest)
+        {
+            return true;
+        }
+
+        // YARP can proxy an upgrade without this app installing WebSocket middleware,
+        // so inspect the HTTP/1.1 handshake headers as well.
+        if (!HttpMethods.IsGet(context.Request.Method))
+        {
+            return false;
+        }
+
+        var upgradeHeader = context.Request.Headers["Upgrade"].ToString();
+        var connectionHeader = context.Request.Headers["Connection"].ToString();
+
+        return string.Equals(upgradeHeader, "websocket", StringComparison.OrdinalIgnoreCase)
+            && connectionHeader.Split(',').Any(value =>
+                string.Equals(value.Trim(), "upgrade", StringComparison.OrdinalIgnoreCase));
     }
 }
