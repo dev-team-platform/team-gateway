@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.Extensions.Options;
@@ -187,9 +188,16 @@ public sealed class OidcTokenRefreshService : IOidcTokenRefreshService
 
     private sealed class TokenRefreshResponse
     {
+        [JsonPropertyName("access_token")]
         public string AccessToken { get; init; } = null!;
+
+        [JsonPropertyName("refresh_token")]
         public string? RefreshToken { get; init; }
+
+        [JsonPropertyName("id_token")]
         public string? IdToken { get; init; }
+
+        [JsonPropertyName("expires_in")]
         public int ExpiresIn { get; init; }
     }
 }
