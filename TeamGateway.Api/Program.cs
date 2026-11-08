@@ -1,41 +1,75 @@
+using Microsoft.AspNetCore.Mvc;
+using Serilog;
+using TeamGateway.Api.Constants;
+using TeamGateway.Api.Extensions;
+using TeamGateway.Api.Middlewares;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+builder.Services.AddGatewaySecurity(builder.Configuration, builder.Environment);
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("gateway-session", policy => policy.RequireAuthenticatedUser());
+});
+builder.Services.AddControllersWithViews(options =>
+{
+    options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute());
+});
+builder.Services.AddGatewayReverseProxy(builder.Configuration);
+builder.Services.AddGatewayRateLimiter(builder.Configuration);
+builder.Services.AddApiVersioningConfiguration();
+builder.Services.AddCorsConfiguration(builder.Configuration);
+
+builder.Host.UseSerilog((context, services, configuration) =>
+{
+    configuration
+        .ReadFrom.Configuration(context.Configuration)
+        .ReadFrom.Services(services);
+});
+
+builder.Services.AddForwardedHeadersConfiguration(builder.Configuration);
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+app.UseForwardedHeaders();
+app.UseSerilogRequestLogging(options =>
 {
-    app.MapOpenApi();
-}
+    options.MessageTemplate =
+        "HTTP {RequestMethod} {RequestPath} responded {StatusCode} " +
+        "in {Elapsed:0.0000} ms " +
+        "IP={RemoteIpAddress} " +
+        "XFF={XForwardedFor} " +
+        "ClientActionId={ClientActionId} " +
+        "ClientRequestId={ClientRequestId}";
 
-app.UseHttpsRedirection();
+    options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
+    {
+        diagnosticContext.Set(
+            "XForwardedFor",
+            httpContext.Request.Headers["X-Forwarded-For"].ToString());
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
+        diagnosticContext.Set(
+            "RemoteIpAddress",
+            httpContext.Connection.RemoteIpAddress?.ToString());
 
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
+        diagnosticContext.Set(
+            "ClientActionId",
+            httpContext.Request.Headers["X-Client-Action-Id"].FirstOrDefault());
+
+        diagnosticContext.Set(
+            "ClientRequestId",
+            httpContext.Request.Headers["X-Client-Request-Id"].FirstOrDefault());
+    };
+});
+app.UseRouting();
+app.UseCors(CorsPolicies.DefaultCors);
+app.UseAuthentication();
+app.UseRateLimiter();
+app.UseMiddleware<ClientCorrelationMiddleware>();
+app.UseMiddleware<AntiforgeryValidationMiddleware>();
+app.UseAuthorization();
+
+app.MapControllers();
+app.MapReverseProxy();
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
