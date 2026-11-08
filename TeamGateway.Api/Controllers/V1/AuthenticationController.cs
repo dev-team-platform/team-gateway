@@ -104,7 +104,7 @@ public class AuthenticationController : ControllerBase
 
     [Authorize]
     [HttpGet("csrf")]
-    [EnableRateLimiting(RateLimiterPolicies.Default)]
+    [EnableRateLimiting(RateLimiterPolicies.Standard)]
     public IActionResult GetCsrfToken()
     {
         var tokens = _antiforgery.GetAndStoreTokens(HttpContext);

@@ -10,7 +10,7 @@ namespace TeamGateway.Api.Controllers;
 
 [Route("api/health-check")]
 [ApiController]
-[EnableRateLimiting(RateLimiterPolicies.Default)]
+[EnableRateLimiting(RateLimiterPolicies.Standard)]
 [SkipClientCorrelation]
 public class HealthCheckController : ControllerBase
 {

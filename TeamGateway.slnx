@@ -1,3 +1,4 @@
 <Solution>
   <Project Path="TeamGateway.Api/TeamGateway.Api.csproj" />
+  <Project Path="TeamGateway.Api.Tests/TeamGateway.Api.Tests.csproj" />
 </Solution>

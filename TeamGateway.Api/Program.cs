@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Versioning;
 using Serilog;
 using TeamGateway.Api.Constants;
 using TeamGateway.Api.Extensions;
@@ -64,13 +63,13 @@ app.UseSerilogRequestLogging(options =>
 });
 app.UseRouting();
 app.UseCors(CorsPolicies.DefaultCors);
-app.UseRateLimiter();
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseMiddleware<ClientCorrelationMiddleware>();
 app.UseMiddleware<AntiforgeryValidationMiddleware>();
 app.UseAuthorization();
 
 app.MapControllers();
-app.MapReverseProxy().RequireRateLimiting(RateLimiterPolicies.Default);
+app.MapReverseProxy();
 
 app.Run();
